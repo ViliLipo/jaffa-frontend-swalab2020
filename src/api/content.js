@@ -6,9 +6,12 @@ export const getContent = async () => {
   try {
     const res = await fetch(apiUrl, { method: 'GET' });
     console.log(res);
-    const jsonData = res.json();
+    const jsonData = await res.json();
     console.log(jsonData);
-    return jsonData;
+    if (res.status !== 500) {
+      return jsonData;
+    }
+    return [];
   } catch (error) {
     console.error(error);
     return [];

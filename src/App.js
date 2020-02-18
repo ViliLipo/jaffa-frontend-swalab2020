@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { getContent } from './api/content';
 import FormModal from './formmodal';
+import LoginForm from './loginform';
+import RegisterForm from './registerform';
 import './App.css';
 
 function Content(props) {
@@ -72,6 +74,13 @@ function App() {
           {' '}
           login
         </button>
+        <button
+          type="button"
+          onClick={() => { setView(() => 'register'); }}
+        >
+          {' '}
+          Register
+        </button>
         <Content contentList={contentList} />
         <button
           type="button"
@@ -86,7 +95,20 @@ function App() {
   if (view === 'login') {
     return (
       <div className="App">
-        <div>Login</div>
+        <LoginForm onLogin={(credentials) => console.log(credentials)} />
+        <button
+          type="button"
+          onClick={() => { setView(() => 'content'); }}
+        >
+          back
+        </button>
+      </div>
+    );
+  }
+  if (view === 'register') {
+    return (
+      <div className="App">
+        <RegisterForm />
         <button
           type="button"
           onClick={() => { setView(() => 'content'); }}
