@@ -1,12 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { getContent } from './api/content';
+import FormModal from './formmodal';
 import './App.css';
 
 function Content(props) {
   const { contentList } = props;
   return (
     <div className="Content">
-      <ul>{contentList.map((post) => (<li key={post.id}><Post post={post} /></li>))}</ul>
+      <div> Jaffa posts </div>
+      <ul>
+        {contentList.map((post) => (
+          <li key={post.id}>
+            <Post post={post} />
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -20,9 +28,9 @@ function Post(props) {
   ));
   return (
     <div className="Post">
-      <div>{post.title}</div>
-      <div>{post.content}</div>
-      <div>{post.user}</div>
+      <div className="PostTitle">{post.title}</div>
+      <div className="PostContent">{post.content}</div>
+      <div className="PostUser">{post.user}</div>
       <ul>{commentList}</ul>
     </div>
   );
@@ -31,11 +39,11 @@ function Post(props) {
 function Comment(props) {
   const { comment } = props;
   return (
-    <div>
-      <div>
+    <div className="Comment">
+      <div className="CommentContent">
         {comment.content}
       </div>
-      <div>
+      <div className="CommentUser">
         {comment.user}
       </div>
     </div>
@@ -44,6 +52,7 @@ function Comment(props) {
 
 function App() {
   const [contentList, setContentList] = useState([]);
+  const [view, setView] = useState('content');
   useEffect(() => {
     async function fetchContent() {
       const data = await getContent();
@@ -51,13 +60,42 @@ function App() {
     }
     fetchContent();
   }, []);
-  return (
-    <div className="App">
-      <header className="App-header">
+  const [modalOpen, setModalOpen] = useState(false);
+  if (view === 'content') {
+    return (
+      <div className="App">
+        <div> Just a fun forum!</div>
+        <button
+          type="button"
+          onClick={() => { setView(() => 'login'); }}
+        >
+          {' '}
+          login
+        </button>
         <Content contentList={contentList} />
-      </header>
-    </div>
-  );
+        <button
+          type="button"
+          onClick={() => { setModalOpen((prev) => !prev); }}
+        >
+          {modalOpen ? '-' : '+' }
+        </button>
+        <FormModal isOpen={modalOpen} />
+      </div>
+    );
+  }
+  if (view === 'login') {
+    return (
+      <div className="App">
+        <div>Login</div>
+        <button
+          type="button"
+          onClick={() => { setView(() => 'content'); }}
+        >
+          back
+        </button>
+      </div>
+    );
+  }
 }
 
 export default App;

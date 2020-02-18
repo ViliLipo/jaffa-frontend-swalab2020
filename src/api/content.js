@@ -1,6 +1,6 @@
 import fetch from 'node-fetch';
 
-const apiUrl = 'http://localhost:3001/api/content';
+const apiUrl = 'http://localhost:3005/api/content';
 
 export const getContent = async () => {
   try {
@@ -15,4 +15,19 @@ export const getContent = async () => {
   }
 };
 
-export default { getContent };
+export const postContent = async (content) => {
+  try {
+    const res = await fetch(apiUrl, {
+      method: 'POST',
+      body: JSON.stringify(content),
+      headers: { 'Content-Type': 'application/json' },
+    });
+    console.log(res);
+    return res.data;
+  } catch (error) {
+    console.error(error);
+    return {};
+  }
+};
+
+export default { getContent, postContent };
