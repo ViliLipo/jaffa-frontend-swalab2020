@@ -3,6 +3,7 @@ import { getContent } from './api/content';
 import FormModal from './formmodal';
 import LoginForm from './loginform';
 import RegisterForm from './registerform';
+import tokenstore from './api/tokenstore';
 import './App.css';
 
 function Content(props) {
@@ -95,7 +96,12 @@ function App() {
   if (view === 'login') {
     return (
       <div className="App">
-        <LoginForm onLogin={(credentials) => console.log(credentials)} />
+        <LoginForm
+          onLogin={(credentials) => {
+            tokenstore.setToken(credentials.token);
+            setView('content');
+          }}
+        />
         <button
           type="button"
           onClick={() => { setView(() => 'content'); }}

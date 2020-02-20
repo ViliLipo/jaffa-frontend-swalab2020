@@ -10,8 +10,12 @@ export const postLogin = async (username, password) => {
       body: JSON.stringify(content),
       headers: { 'Content-Type': 'application/json' },
     });
-    const data = await res.json();
-    return data;
+    if (res.ok) {
+      const data = await res.json();
+      return data;
+    }
+    console.log(res);
+    return false;
   } catch (error) {
     console.error(error);
     return false;

@@ -26,12 +26,13 @@ const RegisterForm = () => {
     const credentials = await postUser(username, password);
     if (!credentials) {
       console.log('error in form');
+    } else {
+      setFormContent(() => ({ username: '', password: '' }));
     }
-    setFormContent(() => ({ username: '', password: '' }));
   };
   return (
     <div>
-      <div> Login </div>
+      <div> Register </div>
       <form onSubmit={handleSubmit}>
         <div>
           <label>

@@ -1,4 +1,5 @@
 import fetch from 'node-fetch';
+import tokenstore from './tokenstore';
 
 const apiUrl = 'http://localhost:3005/api/content';
 
@@ -8,7 +9,7 @@ export const getContent = async () => {
     console.log(res);
     const jsonData = await res.json();
     console.log(jsonData);
-    if (res.status !== 500) {
+    if (res.ok) {
       return jsonData;
     }
     return [];
@@ -19,14 +20,15 @@ export const getContent = async () => {
 };
 
 export const postContent = async (content) => {
+  const token = tokenstore.getToken();
   try {
     const res = await fetch(apiUrl, {
       method: 'POST',
-      body: JSON.stringify(content),
+      body: JSON.stringify({ ...content, token }),
       headers: { 'Content-Type': 'application/json' },
     });
     console.log(res);
-    return res.data;
+    return await res.json();
   } catch (error) {
     console.error(error);
     return {};
