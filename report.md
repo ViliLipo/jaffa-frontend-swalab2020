@@ -9,9 +9,12 @@ API-gateway. To demonstrate these patterns I built a walking skeleton of a
 discussion forum application named Jaffa, which stands for just a fast forum
 application. 
 
-I also was curious to see how using machine queues could work in
-the inter-service communications in my application, so I decided to use
-RabbitMQ to deliver the messages in my Saga.
+I also was curious to see how using machine queues could work in the
+inter-service communications in my application, so I decided to use RabbitMQ to
+deliver the messages in my Saga. Using machine queues in event transmission has
+certain benefits, like decoupling the micro-services from exact addresses as
+they can just send their messages to the right queue and let the message broker
+to do the rest.
 
 ### Saga
 
@@ -106,8 +109,8 @@ choreography-based saga at first, because the Content Manager was always meant
 to tell the Moderation manager exactly what local transaction to execute.
 
 There might have been a third way of coupling the actions together, using the
-`Sequelize`-library's hook functionality, that would have allowed some actions,
-like using the AMQP-rpc wrapper I wrote, to be called when a Post is created to
+`Sequelize`-library's hook functionality, that allows  functions,
+like the AMQP-rpc wrapper I wrote, to be called when a Post is created to
 the database.  This would be most like the `Event Sourcing` pattern that
 Richardson also promotes on his site. This would have the benefit that a
 developer could never forget to send the moderation event to the moderation
