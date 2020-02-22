@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { postContent } from './api/content';
 
 const FormModal = (props) => {
-  const { isOpen } = props;
+  const { isOpen, onPost } = props;
   const [formContent, setFormContent] = useState({ title: '', content: '' });
+  const [errorMsg, setErrorMsg] = useState({ visible: 'false', content: '' });
   const handleChange = (event) => {
     const etarget = event.target;
     if (etarget.className === 'titleInput') {
@@ -12,18 +13,31 @@ const FormModal = (props) => {
         return newContent;
       });
     } else if (etarget.className === 'contentInput') {
-      setFormContent((prevContent) => ({ ...prevContent, content: etarget.value }));
+      setFormContent((prevContent) => ({
+        ...prevContent,
+        content: etarget.value,
+      }));
     }
   };
   const handleSubmit = async (event) => {
     event.preventDefault();
     const data = { ...formContent, username: 'Jaakko331' };
-    await postContent(data);
-    setFormContent(() => ({ title: '', content: '' }));
+    const newPost = await postContent(data);
+    if (newPost) {
+      setFormContent(() => ({ title: '', content: '' }));
+      onPost(newPost);
+      setErrorMsg(() => ({ visible: false, content: '' }));
+    } else {
+      setErrorMsg(() => ({
+        visible: true,
+        content: 'Your content did not pass the moderation',
+      }));
+    }
   };
   if (isOpen) {
     return (
       <div>
+        {errorMsg.visible ? (<div>{errorMsg.content}</div>) : <div />}
         <form onSubmit={handleSubmit}>
           <div>
             <label>

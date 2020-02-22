@@ -7,6 +7,7 @@ const LoginForm = (props) => {
     username: '',
     password: '',
   });
+  const [errorDisplay, setErrorDisplay] = useState('');
   const handleChange = (event) => {
     const etarget = event.target;
     if (etarget.className === 'usernameInput') {
@@ -25,12 +26,16 @@ const LoginForm = (props) => {
     event.preventDefault();
     const { username, password } = formContent;
     const credentials = await postLogin(username, password);
-    onLogin(credentials);
-    setFormContent(() => ({ username: '', password: '' }));
+    if (credentials) {
+      setFormContent(() => ({ username: '', password: '' }));
+      onLogin(credentials);
+    } else {
+      setErrorDisplay('Wrong username or password');
+    }
   };
   return (
     <div>
-    <div> Login </div>
+      <div> Login </div>
       <form onSubmit={handleSubmit}>
         <div>
           <label>
@@ -58,6 +63,9 @@ const LoginForm = (props) => {
           <input type="submit" value="Submit" />
         </div>
       </form>
+      <div className="ErrorDisplay">
+        {errorDisplay}
+      </div>
     </div>
   );
 };

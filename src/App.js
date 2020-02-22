@@ -31,9 +31,18 @@ function Post(props) {
   ));
   return (
     <div className="Post">
-      <div className="PostTitle">{post.title}</div>
-      <div className="PostContent">{post.content}</div>
-      <div className="PostUser">{post.user}</div>
+      <div className="PostTitle">
+        Title:
+        {post.title}
+      </div>
+      <div className="PostContent">
+        Content:
+        {post.content}
+      </div>
+      <div className="PostUser">
+        User:
+        {post.user}
+      </div>
       <ul>{commentList}</ul>
     </div>
   );
@@ -89,7 +98,10 @@ function App() {
         >
           {modalOpen ? '-' : '+' }
         </button>
-        <FormModal isOpen={modalOpen} />
+        <FormModal
+          isOpen={modalOpen}
+          onPost={(post) => setContentList([...contentList, post])}
+        />
       </div>
     );
   }

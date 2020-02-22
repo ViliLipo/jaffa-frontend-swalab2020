@@ -16,6 +16,9 @@ certain benefits, like decoupling the micro-services from exact addresses as
 they can just send their messages to the right queue and let the message broker
 to do the rest.
 
+The goal of the architecture in this project is to allow easy extensibility and
+scalability for the platform.
+
 ### Saga
 
 In a context where the database per service pattern is implemented, it can 
@@ -134,8 +137,40 @@ functions, not objects. The `moderationSaga` function controls most of the saga,
 it sends the message to the service and defines a receiver that handles the reply
 from the `Moderation Manager`.
 
+## Running the demonstration.
 
-### Conclusions
+Prerequisites
+- Having npm or yarn installed on your system
+- Having Docker installed on your system (for running RabbitMQ)
+
+- 1. The Succesful case
+  - 1.Clone the following git repositories:
+    - https://github.com/ViliLipo/jaffa-frontend-swalab2020.git
+    - https://github.com/ViliLipo/jaffa-api-gateway-swalab2020.git
+    - https://github.com/ViliLipo/jaffa-content-manager-swalab2020.git
+    - https://github.com/ViliLipo/jaffa-moderation-manager-swalab2020.git
+
+  - 2. Start RabbitMQ Docker-container with this command 
+  ```
+  docker run -it --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management
+  ```
+
+  - 3. Start each of the cloned repositories with `yarn start` or `npm start`,
+    starting the frontend last.
+
+  - 4. Open the site on the address `http://localhost:3000/` and login with user
+    credentials `Testman`, `password`.
+
+  - 5. Press the `+` button on the main view, and submit some content, any content should
+  pass the saga. Process logs should display the process.
+
+- 2. The Unsuccesful case
+  - 6. Logout by refreshing the site. And then login with the credentials 
+  `Mutedman`, `password`.
+  - 7. Try to submit some content, the moderation manager should stop you.
+
+
+## Conclusions
 
 The Saga-pattern is very crucial to any micro-service based application that
 uses the database-per-service-pattern. Implementing sagas can be very complex,
