@@ -10,9 +10,9 @@ API-gateway. To demonstrate these patterns I built a walking skeleton of a
 discussion forum application named Jaffa, which stands for just a fun forum
 application. 
 
-I also was curious to see how using machine queues could work in the
+I also was curious to see how using message queues could work in the
 inter-service communications in my application, so I decided to use RabbitMQ to
-deliver the messages in my Saga. Using machine queues in event transmission has
+deliver the messages in my Saga. Using message queues in event transmission has
 certain benefits, like decoupling the micro-services from exact addresses as
 they can just send their messages to the right queue and let the message broker
 to do the rest.
@@ -31,21 +31,48 @@ In a context where the database per service pattern is implemented, it can
 be challenging doing transactions that span multiple services. Saga pattern
 is created to do ACID-transactions between services.
 
-Chris Richardson defines Sagas in two categories: choreography based
-and orchestration based on his site(www.micro-services.io). In choreograhy-based
-each local transaction publishes domain events that trigger local transactions
-in other services. In orchestration-based saga an orchestrator tells the
-participants what local transactions to execute.
+Chris Richardson defines Sagas in two categories: choreography based and
+orchestration based on his site(www.micro-services.io). In choreography-based
+each local transaction publishes domain events or messages that trigger local
+transactions in other services. In orchestration-based saga an orchestrator
+tells the participants using events or messages what local transactions to
+execute.
+
+### Message queues
+
+The messages used to coordinate Sagas in this project use message queues.
+AMQP meaning the Advanced Message Queuing Protocol is an application layer
+protocol for message oriented middleware. It is designed to support different
+messaging applications, as it is highly configurable.
+
+The use of message queues is mostly motivated by educational purposes, but it
+does also provide higher level of decoupling between the services without
+needing highly configured proxy server to redirect request to mirrored
+micro-services. The events could be, transmitted using just TCP, or HTTP, but
+exploring the message queues could be useful in more complex cases.
 
 ## Architecture overview of Jaffa
 
 Jaffa consists of three micro-services and a single-page-application frontend.
 The micro-services are all implemented using `Node.js`, the
-object-relation-mapping-library-`Sequelize.js` and `Express.js`.  The two core
-domain services, `Content Manager` and `Moderation Manager` use `amqplib` to
-communicate the saga messages between each other. Finally, there is the
-API-gateway, that is also responsible for authentication and user management.
-The front-end uses `React.js`.
+object-relation-mapping-library-`Sequelize.js` and `Express.js`.  The
+micro-services include two core domain services, `Content Manager` and
+`Moderation Manager`.  I decided that the core domain services communicate with
+each other using message queues. One tertiary service is API-gateway, that is
+also responsible for authentication and user management.  The front-end uses
+`React.js`.
+
+The message broker implementation I chose was the open source
+[RabbitMQ](https://www.rabbitmq.com/).  It is released under the Mozilla Public
+Licence and written in Erlang. I use the Docker image of the software as it
+saves me the burden of installing and configuring RabbitMQ on my own system.
+
+To interface my `Node.js` micro-services with RabbitMQ I use
+[amqplib](https://www.npmjs.com/package/amqplib). I use the promise version of
+the API-in the `./interservice/`-parts of the microservices. The code mostly
+follows the examples given on the npm page, and on the RabbitMQ getting started
+guide, but I refactored it to use `async/await` instead of using promise
+chains.
 
 ### The Content Manager
 
@@ -62,6 +89,10 @@ It denies the posts, and comments from muted users and the posts that otherwise
 violate some rules. It also provides the API:s for muting and unmuting users.
 
 The saga pattern resides between these two services in the Jaffa-architecture.
+
+The moderation-manager has two controlling __threads__, There is one asynchronous
+loop listening to the message-queue, and other listening to the http traffic,
+with the `Express.js` framework.
 
 ## The Saga pattern experimentation
 
@@ -82,9 +113,9 @@ case of Jaffa it is the Content-Controller.
 Now the orchestration-based saga in the Jaffa-context is the following:
  - 1. The  Content Manager receives `POST /api/content` and it creates a `Post`
    with the `Pending` field set to `true`.
-- 2. The `Moderation Saga` is called
-- 3. The `Moderation Saga` sends `Moderation` command to the `Moderation Manager`
-- 4. The `Moderation Manager` checks the post.
+- 2.  `Moderation Saga` is called
+- 3.  `Moderation Saga` sends `Moderation` command to the `Moderation Manager`
+- 4.  `Moderation Manager` checks the post.
 - 5. It sends back a reply message indicating the outcome.
 - 6. The saga orchestrator, in this case the controller for the post route,
   approves or rejects the `Post`.
@@ -95,24 +126,34 @@ Diagram of  the orchestration based Saga.
 
 ### My experience in implementing the Saga
 
- At first, I tried to implement the choreography based Saga, as it seems very
- straight forward and it does not have many artefacts at all. One issue
- emerged, which nudged me towards orchestration-based saga, and that was
- communicating the result of the saga to the client who did the initial `POST
- /api/content`.  It was nearly impossible to reach the client that started the
- saga in the HTTP-controller from the machine queue event-listener, because in
- my architecture the part that listened to HTTP and the AMQP-queue were highly
- decoupled. So to return the result of the saga, I needed orchestration in
- the controller responsible for reacting to the HTTP post request in the
- Content Manager-service.
+At first, I tried to implement the choreography based Saga, as it seems very
+straight forward and it does not have many artefacts at all. One issue emerged,
+which nudged me towards orchestration-based saga, and that was communicating
+the result of the saga to the client who did the initial `POST /api/content`.
 
-With the orchestration-based saga
-the key difference for my application was that the message from the Moderation
-Manager is a direct reply to the moderation command and not just two loosely
-coupled events. This meant that I could wrap the event listener action in the
-interservice part of my Content manager to a `Promise` that allows the service
-to wait for the reply in the controller. This is how the HTTP events and the
-AMQP-events could be coupled in a neat stateless fashion.
+It was nearly impossible to reach the client that started the saga in the
+HTTP-controller from the message queue event-listener, because in my
+architecture the part that listened to HTTP and the part that listened to the
+message-queue were highly decoupled, effectively running in different
+asynchronous _threads_. So to return the result of the saga, I needed
+orchestration in the controller responsible for reacting to the HTTP post
+request in the Content Manager-service.
+
+The old way of organizing the service can still be found in the `Moderation
+Manager` as there is no need for it to wait for replies. So it will just react
+to the messages addressed to it from the queue, without caring at all in what
+state the `Express.js` framework is. This was a problem to the `Content Manger`
+as it wants to hold on to a client's HTTP-connection so that it can report the
+result back to the client.
+
+With the orchestration-based saga the key difference for my application was
+that the message from the Moderation Manager is a direct reply to the
+moderation command and not just two loosely coupled events.  So I wrote the
+`mqRPC`-function to implement the remote-procedure-call pattern with
+message-queues. In that I  wrapped the event listener action in it to a
+`Promise` that allows the service to wait for the reply in the controller. This
+is how the HTTP events and the AMQP-events could be coupled in a neat stateless
+fashion.
 
 Now the whole Saga could be finished
 before the reply is sent back to the client. This is very important for the
@@ -123,18 +164,27 @@ In retrospect, it is easy to see that I was clearly wrong in choosing the
 choreography-based saga at first, because the Content Manager was always meant
 to tell the Moderation manager exactly what local transaction to execute.
 
+The case is bit naive as a Saga as there is only two services and it does not
+very clearly demonstrate the chain of compensating actions that would happen if
+the saga involved more services. In addition to that the `Moderation Manager`
+does not write anything to its database during the saga, so the case is really
+oversimplified. To flesh out the saga the `Moderation Manager` could have a
+database table logging the moderation actions it has done, or multiple offenses
+from a single account, like spamming could result to a mute. 
+
 There might have been a third way of coupling the actions together, using the
-`Sequelize`-library's hook functionality, that allows  functions,
-like the AMQP-rpc wrapper I wrote, to be called when a Post is created to
-the database.  This would be most like the `Event Sourcing` pattern that
-Richardson also promotes on his site. This would have the benefit that a
-developer could never forget to send the moderation event to the moderation
-service, when a post is created at any position in the source code of the
-content manager.
+`Sequelize`-library's hook functionality, that allows  functions, like the
+AMQP-rpc wrapper I wrote, to be called when a Post is created to the database.
+This would be most like the `Event Sourcing` pattern that Richardson also
+promotes on his site. This would have the benefit that a developer could never
+forget to send the moderation event to the moderation service, when a post is
+created at any position in the source code of the content manager.
 
 Also, if the clients are able to listen to events in some ways like using
-machine queue channels or web sockets, choreography based Sagas can be used
-in a less cumbersome way, than replying the results with http.
+message queue channels or web sockets, choreography based Sagas can be very
+good as then we can update the client state using that alternative push
+channel. This also has the benefit that push-style messaging can be used to
+create real-time read experience to the client.
 
 In this project I spent most of the time trying to fit two libraries with very
 different styles together, them being `Express.js` and `amqplib`.  That was of
@@ -162,16 +212,16 @@ contentRouter.post('/', async (request, response) => {
     const newPost = await Post.create({ user: username, title, content });
     const jsonData = newPost.getJsonRepresentation();
     const moderationresult = await moderationSaga(jsonData); // this starts the saga
-    if (moderationresult) {
+    if (moderationresult) { // check if saga was successful
       const [postAfterModeration] = await Post.findAll({
         include: [Comment],
         where: { id: newPost.id },
       });
       console.log('Saga passed');
       response.status(200).json(postAfterModeration);
-    } else {
+    } else { // saga was not successful compensate.
       console.log('Saga did not pass');
-      response.status(401).json({ error: 'Post did not pass automatic modaration' });
+      response.status(401).json({ error: 'Post did not pass automatic moderation' });
     }
   } catch (error) {
     console.error(error);
@@ -194,16 +244,16 @@ that handles the reply message. Most of the code is highly specific to `amqplib`
 const amqp = require('amqplib');
 
 const mqRPC = async (message, sendQueue, receiver) => {
-  const connection = await amqp.connect('amqp://localhost');
+  const connection = await amqp.connect('amqp://localhost'); // configuring the connection
   const channel = await connection.createChannel();
   const correlationId = generateUuid();
   const receivingQueue = await channel.assertQueue('', { exclusive: true });
   if (receivingQueue) {
-    const returnPromise = new Promise((resolve, reject) => {
+    const returnPromise = new Promise((resolve, reject) => { // We create a promise so we can wait for a reply
       channel.consume(receivingQueue.q, async (reply) => {
         if (reply.properties.correlationId === correlationId) {
-          const value = await receiver(reply, returnPromise);
-          resolve(value);
+          const value = await receiver(reply, returnPromise); // We bind the receiver function that handles the reply message
+          resolve(value); // Now the promise can be resolved with the value processed by the receiver
         }
       }, { noAck: true });
       channel.sendToQueue(sendQueue, Buffer.from(message),
@@ -219,7 +269,7 @@ const mqRPC = async (message, sendQueue, receiver) => {
 ```
 
 `mqRPC`-function is called by the `moderationSaga` function. The moderation saga gives
-the contenEventReceiver  as the receiver-parameter. It takes the reply from the
+the `contenEventReceiver`  as the receiver-parameter. It takes the reply from the
 moderation manager and modifies the local database accordingly.
 
 ```javascript
@@ -268,6 +318,11 @@ const moderationSaga = async (message) => {
 module.exports = moderationSaga;
 ```
 
+`contentEventReceiver` handles the response from the `moderationManager`. If
+the post passed we remove its pending state. If the post did not pass the
+moderation we delete it from the database.
+
+
 In the moderation manager the reaction to messages is done by the `registerReceiver`-function.
 It binds a queue to a receiver-function.
 
@@ -286,6 +341,7 @@ const registerReceiver = async (queueName, receiver) => {
   }
 };
 ```
+
 The receiver that is used is the `moderationEventReceiver`. `registerReceiver` is called from 
 `index.js`.
 
@@ -338,7 +394,6 @@ const moderateEvent = async (eventData) => {
 
 const moderationEventReceiver = async (message) => {
   const { content, properties } = message;
-  console.log(properties);
   const { replyTo, correlationId } = properties;
   const data = JSON.parse(content.toString());
   const reply = await moderateEvent(data);
@@ -349,7 +404,9 @@ const moderationEventReceiver = async (message) => {
 module.exports = moderationEventReceiver;
 ```
 
-This receiver also does the reply to the reply queue specified by the message properties.
+This receiver also does the reply to the reply queue specified by the message properties,
+using `mqSend`-function.
+
 ### Code model gap
 
 In the resulting source code there is a clear code model gap, as I write
@@ -387,7 +444,7 @@ Prerequisites
   - 5. Press the `+` button on the main view, and submit some content, any content should
   pass the saga. Process logs should display the process.
 
-- 2. The Unsuccesful case
+- 2. Unsuccessful case
   - 6. Logout by refreshing the site. And then login with the credentials 
   `Mutedman`, `password`.
   - 7. Try to submit some content, the moderation manager should stop you.
@@ -403,3 +460,11 @@ services, the choreography-based-saga will be great for propagating information
 to all involved services. In cases like Jaffa where it would be great to
 communicate the result of the saga to the client the orchestration-based-saga
 suits the situation better.
+
+The Saga-pattern is an effective in maintaining coherency in distributed system,
+but it introduces additional complexity to the system. It also requires
+additional design patterns to be used alongside it to actually make
+ACID-transactions. These patterns are, event-sourcing and transactional-outbox.
+Saga-is nevertheless almost necessary if you have a distributed system with
+coherency needs and your database platform or schema does not support two phase
+commits.
