@@ -32,11 +32,15 @@ be challenging doing transactions that span multiple services. Saga pattern
 is created to do ACID-transactions between services.
 
 Chris Richardson defines Sagas in two categories: choreography based and
-orchestration based on his site(www.micro-services.io). In choreography-based
+orchestration based on his [website](www.micro-services.io). In choreography-based
 each local transaction publishes domain events or messages that trigger local
 transactions in other services. In orchestration-based saga an orchestrator
 tells the participants using events or messages what local transactions to
 execute.
+
+In essence saga is a chain of local transactions that are linked with events or
+messages that form a local transaction. If any of the transactions fails series
+of compensating actions will take place.
 
 ### Message queues
 
@@ -70,9 +74,9 @@ saves me the burden of installing and configuring RabbitMQ on my own system.
 To interface my `Node.js` micro-services with RabbitMQ I use
 [amqplib](https://www.npmjs.com/package/amqplib). I use the promise version of
 the API-in the `./interservice/`-parts of the microservices. The code mostly
-follows the examples given on the npm page, and on the RabbitMQ getting started
-guide, but I refactored it to use `async/await` instead of using promise
-chains.
+follows the examples given on the npm page, and on the RabbitMQ website getting
+started guide, but I refactored it to use `async/await` instead of using
+promise chains.
 
 ### The Content Manager
 
@@ -90,7 +94,7 @@ violate some rules. It also provides the API:s for muting and unmuting users.
 
 The saga pattern resides between these two services in the Jaffa-architecture.
 
-The moderation-manager has two controlling __threads__, There is one asynchronous
+The moderation-manager has two controlling __threads__. There is one asynchronous
 loop listening to the message-queue, and other listening to the http traffic,
 with the `Express.js` framework.
 
@@ -98,19 +102,21 @@ with the `Express.js` framework.
 
 
 ### Possible Sagas in Jaffa domain.
-In the choreography based saga the multiple services communicate their transactions
-through distinct event channels. In the case of Jaffa the choreography-based saga
-would be the following, the API-gateway is omitted for the sake of simplicity:
- - 1. The  Content Manager receives `POST /api/content` and it creates a 
- `Post` with the `Pending` field set to `true`.
+
+In the choreography based saga the multiple services communicate their
+transactions through distinct event channels. In the case of Jaffa the
+choreography-based saga would be the following, the API-gateway is omitted for
+the sake of simplicity:
+ - 1. The  Content Manager receives `POST /api/content` and it creates a `Post`
+   with the `Pending` field set to `true`.
  - 2. Then it emits `Post Created` event
  - 3. The `Moderation Manager`s   event handler checks the post
  - 4. It emits an event indicating the outcome
  - 5. The `Content Manager`s event handler approves or rejects the `Post`
 
-In orchestration there is an artefact that controls the saga. In the 
-case of Jaffa it is the Content-Controller.
-Now the orchestration-based saga in the Jaffa-context is the following:
+In orchestration there is an artefact that controls the saga. In the case of
+Jaffa it is the Content-Controller.  Now the orchestration-based saga in the
+Jaffa-context is the following:
  - 1. The  Content Manager receives `POST /api/content` and it creates a `Post`
    with the `Pending` field set to `true`.
 - 2.  `Moderation Saga` is called
@@ -132,7 +138,7 @@ which nudged me towards orchestration-based saga, and that was communicating
 the result of the saga to the client who did the initial `POST /api/content`.
 
 It was nearly impossible to reach the client that started the saga in the
-HTTP-controller from the message queue event-listener, because in my
+HTTP-controller from the message-queue event-listener, because in my
 architecture the part that listened to HTTP and the part that listened to the
 message-queue were highly decoupled, effectively running in different
 asynchronous _threads_. So to return the result of the saga, I needed
@@ -148,12 +154,12 @@ result back to the client.
 
 With the orchestration-based saga the key difference for my application was
 that the message from the Moderation Manager is a direct reply to the
-moderation command and not just two loosely coupled events.  So I wrote the
-`mqRPC`-function to implement the remote-procedure-call pattern with
+moderation request message and not just two loosely coupled events.  So I wrote
+the `mqRPC`-function to implement the remote-procedure-call pattern with
 message-queues. In that I  wrapped the event listener action in it to a
-`Promise` that allows the service to wait for the reply in the controller. This
-is how the HTTP events and the AMQP-events could be coupled in a neat stateless
-fashion.
+`Promise` that allows the service to wait for the reply in the `Express.js`
+controller. This is how the HTTP events and the AMQP-events could be coupled in
+a neat stateless fashion.
 
 Now the whole Saga could be finished
 before the reply is sent back to the client. This is very important for the
@@ -164,11 +170,11 @@ In retrospect, it is easy to see that I was clearly wrong in choosing the
 choreography-based saga at first, because the Content Manager was always meant
 to tell the Moderation manager exactly what local transaction to execute.
 
-The case is bit naive as a Saga as there is only two services and it does not
+The case is a bit naive as a saga as there is only two services and it does not
 very clearly demonstrate the chain of compensating actions that would happen if
 the saga involved more services. In addition to that the `Moderation Manager`
 does not write anything to its database during the saga, so the case is really
-oversimplified. To flesh out the saga the `Moderation Manager` could have a
+oversimplified. To flesh out the saga, the `Moderation Manager` could have a
 database table logging the moderation actions it has done, or multiple offenses
 from a single account, like spamming could result to a mute. 
 
@@ -176,12 +182,14 @@ There might have been a third way of coupling the actions together, using the
 `Sequelize`-library's hook functionality, that allows  functions, like the
 AMQP-rpc wrapper I wrote, to be called when a Post is created to the database.
 This would be most like the `Event Sourcing` pattern that Richardson also
-promotes on his site. This would have the benefit that a developer could never
-forget to send the moderation event to the moderation service, when a post is
-created at any position in the source code of the content manager.
+promotes on his
+[website](https://microservices.io/patterns/data/event-sourcing.html). This
+would have the benefit that a developer could never forget to send the
+moderation event to the moderation service, when a post is created at any
+position in the source code of the content manager.
 
 Also, if the clients are able to listen to events in some ways like using
-message queue channels or web sockets, choreography based Sagas can be very
+message queue channels or WebSockets, choreography based Sagas can be very
 good as then we can update the client state using that alternative push
 channel. This also has the benefit that push-style messaging can be used to
 create real-time read experience to the client.
@@ -435,13 +443,15 @@ Prerequisites
   docker run -it --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management
   ```
 
-  - 3. Start each of the cloned repositories with `yarn start` or `npm start`,
+  - 3. Install dependencies to each repository using `yarn install` or `npm install`.
+
+  - 4. Start each of the cloned repositories with `yarn start` or `npm start`,
     starting the frontend last.
 
-  - 4. Open the site on the address `http://localhost:3000/` and login with user
+  - 5. Open the site on the address `http://localhost:3000/` and login with user
     credentials `Testman`, `password`.
 
-  - 5. Press the `+` button on the main view, and submit some content, any content should
+  - 6. Press the `+` button on the main view, and submit some content, any content should
   pass the saga. Process logs should display the process.
 
 - 2. Unsuccessful case
