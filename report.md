@@ -128,7 +128,7 @@ Jaffa-context is the following:
 
 Diagram of  the orchestration based Saga.
 
-![diagram](./reportImages/swalab.png)
+![diagram](./reportImages/swalab2.png)
 
 ### My experience in implementing the Saga
 
